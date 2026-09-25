@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A hands-on visual laboratory for learning algorithms." />
+    <title>Algorithm Observatory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Algorithm Observatory home"><span class="orb" aria-hidden="true">◌</span>algorithm observatory</a>
+        <span class="top-note">learn by watching each decision</span>
+        <span class="status" id="statusText" aria-live="polite">● ready</span>
+      </header>
+
+      <section class="control-panel" aria-label="Visualizer controls">
+        <label class="select-label">Choose an algorithm
+          <select id="algorithmSelect">
+            <option value="bubble">Bubble Sort</option><option value="merge">Merge Sort</option>
+            <option value="binary">Binary Search</option><option value="bfs">Breadth-First Search</option><option value="dfs">Depth-First Search</option>
+          </select>
+        </label>
+        <div class="controls">
+          <button class="button button-primary" id="playButton" type="button">▶ <span>Play</span></button>
+          <button class="button" id="pauseButton" type="button" disabled>⏸ <span>Pause</span></button>
+          <button class="button" id="stepButton" type="button">→ <span>Step</span></button>
+          <button class="button icon-button" id="resetButton" type="button" aria-label="Reset visualization">↻</button>
+        </div>
+        <label class="speed-label">pace <output id="speedLabel">1×</output><input id="speedRange" type="range" min="1" max="4" value="1" /></label>
+      </section>
+
+      <section class="hero">
+        <div><p class="kicker">Algorithm in focus</p><h1 id="algorithmTitle">Bubble Sort</h1><p id="algorithmDescription">Swap neighbouring values until the biggest value gently bubbles to the end.</p></div>
+        <div class="complexity"><div><small>TIME</small><strong id="timeComplexity">O(n²)</strong></div><div><small>SPACE</small><strong id="spaceComplexity">O(1)</strong></div><div><small>STEPS</small><strong><span id="stepCount">0</span>/<span id="totalSteps">0</span></strong></div></div>
+      </section>
+
+      <section class="lab-grid">
+        <section class="visual-card" aria-label="Algorithm visualization">
+          <div class="canvas-header"><span class="live-dot"></span><span>LIVE CANVAS</span><button id="randomizeButton" type="button">⤨ new puzzle</button></div>
+          <div class="stage" aria-live="polite">
+            <div class="sort-bars" id="sortBars"></div>
+            <div class="search-row hidden" id="searchRow"></div>
+            <div class="graph hidden" id="graph"></div>
+          </div>
+          <div class="legend" id="legend"></div>
+        </section>
+
+        <aside class="lesson-card">
+          <p class="kicker">Decision log</p>
+          <h2 id="decisionTitle">Awaiting first comparison</h2>
+          <p class="decision-copy" id="decisionText">Press Step to inspect the algorithm one meaningful decision at a time, or Play to let it run.</p>
+          <div class="memory-strip"><span id="memoryLabel">working set</span><code id="memoryValue">—</code></div>
+          <div class="code-card"><div class="code-label">mental model</div><pre id="codeSnippet"></pre></div>
+          <button class="tip" id="tipButton" type="button"><span>✦</span> What should I notice?</button>
+        </aside>
+      </section>
+      <p class="footer-note">Each coloured move represents a real algorithmic decision — not a decorative animation.</p>
+    </main>
+    <script src="main.js"></script>
+  </body>
+</html>
