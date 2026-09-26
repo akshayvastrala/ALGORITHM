@@ -1,89 +1,34 @@
-// Shared playback state is kept global so every algorithm runner can honor it.
-const state = {
-  isPlaying: false,
-  isPaused: false,
-  step: 0,
-  speed: 1,
-  runId: 0,
-};
-
-const algorithms = {
-  bubble: { title: "Bubble Sort", time: "O(n²)", space: "O(1)", file: "bubble_sort.js", hint: "Compare adjacent values and swap them when they are out of order.", code: "for each pair (a, b)\n  if a > b\n    swap(a, b)", type: "sort" },
-  merge: { title: "Merge Sort", time: "O(n log n)", space: "O(n)", file: "merge_sort.js", hint: "Split the list, sort each half, then merge the ordered pieces.", code: "split array in half\nsort both halves\nmerge in order", type: "sort" },
-  binary: { title: "Binary Search", time: "O(log n)", space: "O(1)", file: "binary_search.js", hint: "Eliminate half of the remaining sorted values on every comparison.", code: "while low ≤ high\n  check midpoint\n  keep one half", type: "search" },
-  bfs: { title: "Breadth-First Search", time: "O(V + E)", space: "O(V)", file: "breadth_first.js", hint: "Visit every neighbor at the current depth before going deeper.", code: "queue start node\nwhile queue exists\n  visit its neighbors", type: "graph" },
-  dfs: { title: "Depth-First Search", time: "O(V + E)", space: "O(V)", file: "depth_first.js", hint: "Follow each branch as far as possible before backtracking.", code: "visit node\nfor each neighbor\n  explore neighbor", type: "graph" },
-};
-
-const values = [42, 78, 31, 65, 18, 54, 89, 36, 72, 25];
+// The global playback state is intentionally shared by every algorithm runner.
+const state = { isPlaying: false, isPaused: false, speed: 1, runId: 0, operations: [], index: 0, values: [42, 78, 31, 65, 18, 54, 89, 36, 72, 25] };
 const $ = (selector) => document.querySelector(selector);
-const waitForResume = () => new Promise((resolve) => {
-  const timer = setInterval(() => { if (!state.isPaused || !state.isPlaying) { clearInterval(timer); resolve(); } }, 50);
-});
-
-// Reusable delay: it pauses its countdown while the visualizer is paused.
-async function sleep(ms) {
-  let remaining = ms / state.speed;
-  while (remaining > 0 && state.isPlaying) {
-    if (state.isPaused) { await waitForResume(); continue; }
-    const slice = Math.min(remaining, 40);
-    await new Promise((resolve) => setTimeout(resolve, slice));
-    if (!state.isPaused) remaining -= slice;
-  }
-}
-
-function updateControls() {
-  $("#playButton").disabled = state.isPlaying && !state.isPaused;
-  $("#pauseButton").disabled = !state.isPlaying;
-  $("#pauseButton").innerHTML = state.isPaused ? "<span aria-hidden=\"true\">▶</span> Resume" : "<span aria-hidden=\"true\">⏸</span> Pause";
-  $("#statusText").textContent = state.isPaused ? "Paused" : state.isPlaying ? "Visualizing" : "Ready to explore";
-}
-
-function setStep(step, total) { state.step = step; $("#stepCount").textContent = String(step).padStart(2, "0"); $("#totalSteps").textContent = String(total).padStart(2, "0"); }
-function setLegend(items) { $("#legend").innerHTML = items.map(([color, label]) => `<span class="legend-item"><i class="legend-swatch" style="background:${color}"></i>${label}</span>`).join(""); }
-
-function renderSort() {
-  $("#sortBars").innerHTML = values.map((value, index) => `<div class="bar-wrap"><div class="bar" data-index="${index}" style="height:${value * 2.3}px"></div><span class="bar-label">${value}</span></div>`).join("");
-  setLegend([["#bac0d3", "Unsorted"], ["#f5a25a", "Comparing"], ["#725cf6", "In position"]]);
-}
-function renderSearch() {
-  const searchValues = [3, 8, 14, 21, 27, 36, 44, 52, 61];
-  $("#searchRow").innerHTML = searchValues.map((value, index) => `<div class="search-item" data-index="${index}">${value}</div>`).join("");
-  setLegend([["#cfd5e3", "Available"], ["#f5a25a", "Checking"], ["#725cf6", "Found"]]);
-}
-function renderGraph() {
-  const positions = [[8, 44], [39, 9], [72, 42], [17, 82], [54, 83], [86, 78]];
-  const links = [[0,1],[0,3],[1,2],[1,4],[2,5],[3,4],[4,5]];
-  $("#graph").innerHTML = links.map(([a,b]) => { const [x1,y1] = positions[a], [x2,y2] = positions[b]; const dx=x2-x1, dy=y2-y1, length=Math.hypot(dx,dy); return `<i class="edge" style="left:${x1}%;top:${y1}%;width:${length}%;transform:rotate(${Math.atan2(dy,dx)}rad)"></i>`; }).join("") + positions.map(([x,y], i) => `<div class="node" data-index="${i}" style="left:calc(${x}% - 21px);top:calc(${y}% - 21px)">${String.fromCharCode(65+i)}</div>`).join("");
-  setLegend([["#cbd2e1", "Unvisited"], ["#f5a25a", "Current"], ["#725cf6", "Visited"]]);
-}
-
-function renderAlgorithm() {
-  const algorithm = algorithms[$("#algorithmSelect").value];
-  $("#algorithmTitle").textContent = algorithm.title; $("#timeComplexity").textContent = algorithm.time; $("#spaceComplexity").textContent = algorithm.space; $("#codeLabel").textContent = algorithm.file; $("#codeSnippet").textContent = algorithm.code; $("#hintText").textContent = algorithm.hint;
-  $("#sortBars").classList.toggle("hidden", algorithm.type !== "sort"); $("#searchRow").classList.toggle("hidden", algorithm.type !== "search"); $("#graph").classList.toggle("hidden", algorithm.type !== "graph");
-  if (algorithm.type === "sort") renderSort(); else if (algorithm.type === "search") renderSearch(); else renderGraph();
-  setStep(0, algorithm.type === "graph" ? 6 : algorithm.type === "search" ? 4 : 10);
-}
-
-async function play() {
-  const run = ++state.runId; state.isPlaying = true; state.isPaused = false; updateControls();
-  const type = algorithms[$("#algorithmSelect").value].type;
-  const elements = [...document.querySelectorAll(type === "sort" ? ".bar" : type === "search" ? ".search-item" : ".node")];
-  const order = type === "search" ? [4, 6, 5] : type === "graph" ? ($("#algorithmSelect").value === "bfs" ? [0,1,3,2,4,5] : [0,1,2,5,4,3]) : elements.map((_, i) => i);
-  for (let index = 0; index < order.length && state.isPlaying && run === state.runId; index += 1) {
-    const item = elements[order[index]]; item.classList.add("active", "comparing"); setStep(index + 1, order.length); await sleep(580); item.classList.remove("active", "comparing");
-    item.classList.add(type === "search" ? (index < order.length - 1 ? "discarded" : "found") : type === "graph" ? "visited" : "sorted");
-  }
-  if (run === state.runId) { state.isPlaying = false; state.isPaused = false; updateControls(); $("#statusText").textContent = "Run complete"; }
-}
-function reset() { state.runId += 1; state.isPlaying = false; state.isPaused = false; renderAlgorithm(); updateControls(); }
-
-$("#playButton").addEventListener("click", play);
-$("#pauseButton").addEventListener("click", () => { state.isPaused = !state.isPaused; updateControls(); });
-$("#resetButton").addEventListener("click", reset);
-$("#algorithmSelect").addEventListener("change", reset);
-$("#speedRange").addEventListener("input", (event) => { state.speed = Number(event.target.value); $("#speedLabel").textContent = `${state.speed}×`; });
-
-renderAlgorithm();
-updateControls();
+const graphNodes = [[7,45],[37,8],[70,42],[17,82],[52,84],[85,78]];
+const graphEdges = [[0,1],[0,3],[1,2],[1,4],[2,5],[3,4],[4,5]];
+const details = {
+  bubble:{title:"Bubble Sort",description:"Swap neighbouring values until the biggest value gently bubbles to the end.",time:"O(n²)",space:"O(1)",type:"sort",code:"repeat across the list\n  compare neighbours\n  swap if left > right"},
+  merge:{title:"Merge Sort",description:"Divide the puzzle into tiny ordered pieces, then rebuild it by merging.",time:"O(n log n)",space:"O(n)",type:"sort",code:"divide into halves\nsort each half\nmerge smallest first"},
+  binary:{title:"Binary Search",description:"Use the middle value as a signpost and discard half the search space.",time:"O(log n)",space:"O(1)",type:"search",code:"check the midpoint\nif target is larger\n  discard the left half"},
+  bfs:{title:"Breadth-First Search",description:"Explore a graph in expanding rings, one distance away at a time.",time:"O(V + E)",space:"O(V)",type:"graph",code:"enqueue start\nwhile queue has nodes\n  visit every neighbour"},
+  dfs:{title:"Depth-First Search",description:"Commit to one path, then rewind only when it runs out of road.",time:"O(V + E)",space:"O(V)",type:"graph",code:"visit a node\nchoose one neighbour\nbacktrack when stuck"}
+};
+const pauseGate = () => new Promise(resolve => { const timer=setInterval(()=>{if(!state.isPaused||!state.isPlaying){clearInterval(timer);resolve();}},35); });
+// A reusable delay which preserves remaining time while playback is paused.
+async function sleep(ms){let remaining=ms/state.speed;while(remaining>0&&state.isPlaying){if(state.isPaused){await pauseGate();continue;}const tick=Math.min(remaining,30);await new Promise(resolve=>setTimeout(resolve,tick));if(!state.isPaused)remaining-=tick;}}
+function algorithm(){return details[$("#algorithmSelect").value];}
+function updateControls(){ $("#playButton").disabled=state.isPlaying&&!state.isPaused; $("#pauseButton").disabled=!state.isPlaying; $("#pauseButton").innerHTML=state.isPaused?"▶ <span>Resume</span>":"⏸ <span>Pause</span>"; $("#statusText").textContent=state.isPaused?"● paused":state.isPlaying?"● observing":"● ready"; }
+function setLog(title,text,memory="—"){ $("#decisionTitle").textContent=title; $("#decisionText").textContent=text; $("#memoryValue").textContent=memory; }
+function legend(items){$("#legend").innerHTML=items.map(([color,name])=>`<span><i style="background:${color}"></i>${name}</span>`).join("");}
+function renderSort(active=[]){$("#sortBars").innerHTML=state.values.map((value,i)=>`<div class="bar-wrap"><div class="bar ${active[0]===i?"current":""} ${active[1]===i?"peer":""} ${active.includes("sorted")?"sorted":""}" style="height:${value*2.45}px"></div><span class="bar-label">${value}</span></div>`).join("");legend([["#b8c3d3","unsorted"],["#ff8467","decision"],["#1db995","placed"]]);}
+function renderSearch(active=-1,discard=[]){const vals=[3,8,14,21,27,36,44,52,61];$("#searchRow").innerHTML=vals.map((v,i)=>`<div class="search-item ${discard.includes(i)?"discarded":""} ${active===i?"current":""} ${active===5?"found":""}">${v}</div>`).join("");legend([["#cbd5df","candidate"],["#ff8467","midpoint"],["#1db995","target"]]);}
+function renderGraph(active=-1,visited=[]){$("#graph").innerHTML=graphEdges.map(([a,b])=>{const[x1,y1]=graphNodes[a],[x2,y2]=graphNodes[b],dx=x2-x1,dy=y2-y1;return`<i class="edge" style="left:${x1}%;top:${y1}%;width:${Math.hypot(dx,dy)}%;transform:rotate(${Math.atan2(dy,dx)}rad)"></i>`}).join("")+graphNodes.map(([x,y],i)=>`<div class="node ${active===i?"current":""} ${visited.includes(i)?"visited":""}" style="left:calc(${x}% - 21px);top:calc(${y}% - 21px)">${String.fromCharCode(65+i)}</div>`).join("");legend([["#cbd5df","unseen"],["#ff8467","now"],["#1db995","visited"]]);}
+function bubbleOps(items){const a=[...items],ops=[];for(let end=a.length-1;end>0;end--)for(let i=0;i<end;i++){ops.push({a:i,b:i+1,text:`Compare ${a[i]} and ${a[i+1]}.`,memory:`pair ${i+1} · pass ${a.length-end}`});if(a[i]>a[i+1]){[a[i],a[i+1]]=[a[i+1],a[i]];ops.push({a:i,b:i+1,swap:true,values:[...a],text:"Left is larger, so the pair swaps.",memory:"swap"});}}return ops;}
+function mergeOps(items){const a=[...items],ops=[];function sort(l,r){if(r-l<2)return;const m=(l+r)>>1;sort(l,m);sort(m,r);const merged=[];let i=l,j=m;while(i<m||j<r){if(j===r||(i<m&&a[i]<=a[j]))merged.push(a[i++]);else merged.push(a[j++]);}merged.forEach((v,k)=>a[l+k]=v);ops.push({a:l,b:r-1,values:[...a],text:`Merge the ordered ranges ${l+1}–${m} and ${m+1}–${r}.`,memory:`merge ${r-l} values`});}sort(0,a.length);return ops;}
+function searchOps(){const vals=[3,8,14,21,27,36,44,52,61],ops=[];let l=0,r=vals.length-1;while(l<=r){const m=(l+r)>>1;ops.push({a:m,discard:[...Array(l).keys(),...Array.from({length:vals.length-r-1},(_,i)=>r+1+i)],text:`Check midpoint ${vals[m]} against target 36.`,memory:`low ${l+1} · high ${r+1}`});if(vals[m]===36)break;if(vals[m]<36)l=m+1;else r=m-1;}return ops;}
+function graphOps(){const bfs=algorithm().title.startsWith("Breadth"),order=bfs?[0,1,3,2,4,5]:[0,1,2,5,4,3];return order.map((a,i)=>({a,visited:order.slice(0,i),text:`Visit ${String.fromCharCode(65+a)} ${bfs?"and queue its nearby neighbours":"then continue down this path"}.`,memory:bfs?`queue: ${order.slice(i+1).map(n=>String.fromCharCode(65+n)).join(" ")||"empty"}`:`path: ${order.slice(0,i+1).map(n=>String.fromCharCode(65+n)).join(" → ")}`}));}
+function makeOperations(){const type=algorithm().type;return type==="sort"?($("#algorithmSelect").value==="bubble"?bubbleOps(state.values):mergeOps(state.values)):type==="search"?searchOps():graphOps();}
+function apply(op){const type=algorithm().type;if(type==="sort"){if(op.values)state.values=op.values;renderSort([op.a,op.b]);}else if(type==="search")renderSearch(op.a,op.discard);else renderGraph(op.a,op.visited);setLog(op.swap?"A swap changes the order":"One deliberate decision",op.text,op.memory);}
+function refresh(){const data=algorithm();$("#algorithmTitle").textContent=data.title;$("#algorithmDescription").textContent=data.description;$("#timeComplexity").textContent=data.time;$("#spaceComplexity").textContent=data.space;$("#codeSnippet").textContent=data.code;["sortBars","searchRow","graph"].forEach(id=>$("#"+id).classList.toggle("hidden",!id.toLowerCase().startsWith(data.type==="sort"?"sort":data.type==="search"?"search":"graph")));if(data.type==="sort")renderSort();else if(data.type==="search")renderSearch();else renderGraph();state.operations=makeOperations();state.index=0;$("#stepCount").textContent=0;$("#totalSteps").textContent=state.operations.length;setLog("Awaiting first decision","Press Step to inspect one meaningful decision at a time, or Play to let it run.");}
+function step(){if(state.index>=state.operations.length){setLog("Journey complete","Every decision in this run has been observed. Build a new puzzle to try again.","complete");return false;}apply(state.operations[state.index++]);$("#stepCount").textContent=state.index;return true;}
+async function play(){const id=++state.runId;state.isPlaying=true;state.isPaused=false;updateControls();while(state.isPlaying&&id===state.runId&&step())await sleep(520);if(id===state.runId){state.isPlaying=false;state.isPaused=false;updateControls();$("#statusText").textContent="● complete";}}
+function reset(){state.runId++;state.isPlaying=false;state.isPaused=false;state.values=[42,78,31,65,18,54,89,36,72,25];refresh();updateControls();}
+$("#playButton").onclick=play;$("#pauseButton").onclick=()=>{state.isPaused=!state.isPaused;updateControls();};$("#stepButton").onclick=()=>{if(!state.isPlaying)step();};$("#resetButton").onclick=reset;$("#algorithmSelect").onchange=reset;$("#speedRange").oninput=e=>{state.speed=+e.target.value;$("#speedLabel").textContent=`${state.speed}×`;};$("#randomizeButton").onclick=()=>{state.values=Array.from({length:10},()=>Math.floor(Math.random()*75)+15);state.runId++;state.isPlaying=false;state.isPaused=false;refresh();updateControls();};$("#tipButton").onclick=()=>setLog("Notice the invariant",algorithm().type==="sort"?"The values already placed at the far right will never move again.":algorithm().type==="search"?"Only the midpoint decides which half can be safely ignored.":"The memory strip reveals the queue or path that guides the next choice.",$("#memoryValue").textContent);
+refresh();updateControls();
